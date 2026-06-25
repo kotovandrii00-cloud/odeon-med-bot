@@ -41,7 +41,7 @@ class Settings:
         *,
         require_bot_token: bool = True,
         require_drive_folder: bool = True,
-        require_admin_chat: bool = True,
+        require_admin_chat: bool = False,
     ) -> "Settings":
         bot_token = os.getenv("BOT_TOKEN", "").strip()
         sheet_id = os.getenv("GOOGLE_SHEET_ID", "").strip()

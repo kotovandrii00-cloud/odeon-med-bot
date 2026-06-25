@@ -14,6 +14,13 @@ from bot.services.formatting import expiry_report
 logger = logging.getLogger(__name__)
 
 
+async def _send_group_notification(bot: Bot, settings: Settings, text: str) -> None:
+    try:
+        await bot.send_message(settings.telegram_group_id, text)
+    except Exception:
+        logger.exception("Failed to send scheduled notification to group %s", settings.telegram_group_id)
+
+
 async def daily_expiry_check(bot: Bot, sheets: SheetsService, settings: Settings) -> None:
     try:
         result = await asyncio.to_thread(
@@ -23,19 +30,18 @@ async def daily_expiry_check(bot: Bot, sheets: SheetsService, settings: Settings
         )
     except Exception:
         logger.exception("Scheduled expiration check failed")
-        for chat_id in settings.admin_chat_ids:
-            await bot.send_message(chat_id, "Ежедневная проверка сроков не выполнена: ошибка Google Sheets.")
+        await _send_group_notification(
+            bot,
+            settings,
+            "Ежедневная проверка сроков не выполнена: ошибка Google Sheets.",
+        )
         return
 
     if not result.expired and not result.expiring and not result.invalid_dates:
         return
 
     text = expiry_report(result, scheduled=True)
-    for chat_id in settings.admin_chat_ids:
-        try:
-            await bot.send_message(chat_id, text)
-        except Exception:
-            logger.exception("Failed to send scheduled notification to %s", chat_id)
+    await _send_group_notification(bot, settings, text)
 
 
 def setup_scheduler(bot: Bot, sheets: SheetsService, settings: Settings) -> AsyncIOScheduler:
@@ -49,4 +55,3 @@ def setup_scheduler(bot: Bot, sheets: SheetsService, settings: Settings) -> Asyn
     )
     scheduler.start()
     return scheduler
-
