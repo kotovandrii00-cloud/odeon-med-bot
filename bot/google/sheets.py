@@ -22,11 +22,11 @@ from bot.constants import (
     SHEET_HISTORY,
     SHEET_MEDICINES,
     SHEET_USERS,
-    STATUS_ACTIVE,
     USER_HEADERS,
+    WRITE_OFF_REASON_USED,
 )
 from bot.google.auth import load_service_account_credentials
-from bot.services.parsing import format_decimal, parse_date_or_none, table_decimal
+from bot.services.parsing import parse_date_or_none
 
 
 @dataclass(frozen=True)
@@ -44,11 +44,11 @@ class SheetsService:
         self._spreadsheet = self._client.open_by_key(settings.google_sheet_id)
 
     def ensure_structure(self) -> None:
-        self._ensure_sheet(SHEET_MEDICINES, MEDICINE_HEADERS, rows=500, cols=20)
-        self._ensure_sheet(SHEET_CATEGORIES, CATEGORY_HEADERS, rows=50, cols=3)
-        self._ensure_sheet(SHEET_HISTORY, HISTORY_HEADERS, rows=1000, cols=12)
-        self._ensure_sheet(SHEET_ARCHIVE, ARCHIVE_HEADERS, rows=500, cols=22)
-        self._ensure_sheet(SHEET_USERS, USER_HEADERS, rows=100, cols=8)
+        self._ensure_sheet(SHEET_MEDICINES, MEDICINE_HEADERS, rows=500, cols=len(MEDICINE_HEADERS))
+        self._ensure_sheet(SHEET_CATEGORIES, CATEGORY_HEADERS, rows=50, cols=len(CATEGORY_HEADERS))
+        self._ensure_sheet(SHEET_HISTORY, HISTORY_HEADERS, rows=1000, cols=len(HISTORY_HEADERS))
+        self._ensure_sheet(SHEET_ARCHIVE, ARCHIVE_HEADERS, rows=500, cols=len(ARCHIVE_HEADERS))
+        self._ensure_sheet(SHEET_USERS, USER_HEADERS, rows=100, cols=len(USER_HEADERS))
         self._ensure_default_categories()
 
     def _ensure_sheet(self, title: str, headers: list[str], *, rows: int, cols: int):
@@ -57,7 +57,8 @@ class SheetsService:
         except WorksheetNotFound:
             worksheet = self._spreadsheet.add_worksheet(title=title, rows=rows, cols=cols)
 
-        current = worksheet.row_values(1)
+        worksheet.resize(rows=max(worksheet.row_count, rows), cols=cols)
+        current = worksheet.row_values(1)[: len(headers)]
         if current != headers:
             worksheet.update(range_name="A1", values=[headers])
         return worksheet
@@ -73,11 +74,8 @@ class SheetsService:
 
     def _ensure_default_categories(self) -> None:
         worksheet = self._worksheet(SHEET_CATEGORIES)
-        values = worksheet.get_all_values()[1:]
-        existing = {row[0].strip() for row in values if row and row[0].strip()}
-        missing = [[category] for category in DEFAULT_CATEGORIES if category not in existing]
-        if missing:
-            worksheet.append_rows(missing, value_input_option="USER_ENTERED")
+        values = [CATEGORY_HEADERS] + [[category] for category in DEFAULT_CATEGORIES]
+        worksheet.update(range_name="A1", values=values)
 
     @staticmethod
     def _row_to_dict(headers: list[str], row: list[str], row_number: int | None = None) -> dict[str, Any]:
@@ -90,31 +88,27 @@ class SheetsService:
     def _row_from_dict(headers: list[str], data: dict[str, Any]) -> list[str]:
         return [str(data.get(header, "")) for header in headers]
 
-    @staticmethod
-    def _column_letter(index: int) -> str:
-        result = ""
-        while index:
-            index, remainder = divmod(index - 1, 26)
-            result = chr(65 + remainder) + result
-        return result
-
     def get_categories(self) -> list[str]:
-        worksheet = self._worksheet(SHEET_CATEGORIES)
-        rows = worksheet.get_all_values()[1:]
-        categories = [row[0].strip() for row in rows if row and row[0].strip()]
-        if not categories:
-            self._ensure_default_categories()
-            categories = DEFAULT_CATEGORIES.copy()
-        return categories
+        return DEFAULT_CATEGORIES.copy()
 
-    def get_all_medicines(self) -> list[dict[str, Any]]:
-        worksheet = self._worksheet(SHEET_MEDICINES)
+    def _records(self, sheet_title: str, headers: list[str]) -> list[dict[str, Any]]:
+        worksheet = self._worksheet(sheet_title)
         rows = worksheet.get_all_values()[1:]
-        medicines: list[dict[str, Any]] = []
+        records: list[dict[str, Any]] = []
         for row_number, row in enumerate(rows, start=2):
             if any(cell.strip() for cell in row):
-                medicines.append(self._row_to_dict(MEDICINE_HEADERS, row, row_number))
-        return medicines
+                records.append(self._row_to_dict(headers, row, row_number))
+        return records
+
+    def get_all_medicines(self) -> list[dict[str, Any]]:
+        return self._records(SHEET_MEDICINES, MEDICINE_HEADERS)
+
+    def get_medicine_by_row_number(self, row_number: int) -> dict[str, Any] | None:
+        worksheet = self._worksheet(SHEET_MEDICINES)
+        row = worksheet.row_values(row_number)
+        if not row or not any(cell.strip() for cell in row):
+            return None
+        return self._row_to_dict(MEDICINE_HEADERS, row, row_number)
 
     def get_medicine_by_id(self, medicine_id: str) -> dict[str, Any] | None:
         for medicine in self.get_all_medicines():
@@ -130,52 +124,51 @@ class SheetsService:
             medicine
             for medicine in self.get_all_medicines()
             if needle in medicine.get("Название", "").casefold()
-            or needle in medicine.get("ID", "").casefold()
+        ]
+
+    def search_medicines_by_field(self, field: str, value: str) -> list[dict[str, Any]]:
+        needle = value.casefold().strip()
+        if not needle:
+            return []
+        return [
+            medicine
+            for medicine in self.get_all_medicines()
+            if medicine.get(field, "").casefold().strip() == needle
         ]
 
     def search_archive(self, query: str) -> list[dict[str, Any]]:
         needle = query.casefold().strip()
         if not needle:
             return []
-        worksheet = self._worksheet(SHEET_ARCHIVE)
-        rows = worksheet.get_all_values()[1:]
-        archive: list[dict[str, Any]] = []
-        for row_number, row in enumerate(rows, start=2):
-            if not any(cell.strip() for cell in row):
-                continue
-            item = self._row_to_dict(ARCHIVE_HEADERS, row, row_number)
-            if needle in item.get("Название", "").casefold() or needle in item.get("ID", "").casefold():
-                archive.append(item)
-        return archive
+        return [
+            item
+            for item in self._records(SHEET_ARCHIVE, ARCHIVE_HEADERS)
+            if needle in item.get("Название", "").casefold()
+            or needle in item.get("ID", "").casefold()
+        ]
 
     def next_medicine_id(self) -> str:
         max_number = 0
-        for medicine in self.get_all_medicines():
+        for medicine in self.get_all_medicines() + self._records(SHEET_ARCHIVE, ARCHIVE_HEADERS):
             match = re.fullmatch(r"MED-(\d{6})", medicine.get("ID", ""))
             if match:
                 max_number = max(max_number, int(match.group(1)))
         return f"MED-{max_number + 1:06d}"
 
-    def add_medicine(self, data: dict[str, Any], user_label: str) -> str:
+    def add_medicine(self, data: dict[str, Any], user_label: str, telegram_id: int) -> str:
         medicine_id = self.next_medicine_id()
-        today = self._today_text()
         row = [
             medicine_id,
             data.get("photo_cell") or data.get("photo_url", ""),
             data["name"],
             data["category"],
-            data.get("manufacturer", ""),
-            data.get("series", ""),
+            data["content"],
             data["expiration_date"],
-            data["initial_quantity"],
-            data["initial_quantity"],
-            data["unit"],
-            data["min_quantity"],
+            data["quantity"],
             data["storage"],
-            STATUS_ACTIVE,
             user_label,
-            today,
-            today,
+            str(telegram_id),
+            self._today_text(),
         ]
         self._worksheet(SHEET_MEDICINES).append_row(row, value_input_option="USER_ENTERED")
         self.append_history(
@@ -183,69 +176,29 @@ class SheetsService:
             action="Добавлено",
             medicine_id=medicine_id,
             name=data["name"],
-            quantity=data["initial_quantity"],
-            remainder=data["initial_quantity"],
+            quantity=data["quantity"],
             comment="",
         )
         return medicine_id
 
-    def update_remainder(
+    def archive_by_row_number(
         self,
-        medicine_id: str,
-        remainder: str,
-        status: str,
-        user_label: str,
-        quantity: str,
-        comment: str,
-    ) -> dict[str, Any]:
-        medicine = self.get_medicine_by_id(medicine_id)
-        if not medicine:
-            raise ValueError(f"Лекарство {medicine_id} не найдено")
-
-        row_number = int(medicine["_row_number"])
-        worksheet = self._worksheet(SHEET_MEDICINES)
-        row = self._row_from_dict(MEDICINE_HEADERS, medicine)
-        row[MEDICINE_HEADERS.index("Остаток")] = remainder
-        row[MEDICINE_HEADERS.index("Статус")] = status
-        row[MEDICINE_HEADERS.index("Последнее изменение")] = self._today_text()
-        last_column = self._column_letter(len(MEDICINE_HEADERS))
-        worksheet.update(range_name=f"A{row_number}:{last_column}{row_number}", values=[row])
-        self.append_history(
-            user_label=user_label,
-            action="Использовано",
-            medicine_id=medicine_id,
-            name=medicine.get("Название", ""),
-            quantity=quantity,
-            remainder=remainder,
-            comment=comment,
-        )
-        medicine["Остаток"] = remainder
-        medicine["Статус"] = status
-        medicine["Последнее изменение"] = self._today_text()
-        return medicine
-
-    def archive_by_id(
-        self,
-        medicine_id: str,
+        row_number: int,
         *,
-        reason: str,
-        user_label: str,
-        action: str,
-        quantity: str = "",
-        remainder_override: str | None = None,
-        status_override: str | None = None,
+        written_off_by: str,
+        written_off_by_id: int | str,
+        reason: str = WRITE_OFF_REASON_USED,
+        action: str = "Списано",
     ) -> dict[str, Any]:
-        medicine = self.get_medicine_by_id(medicine_id)
+        medicine = self.get_medicine_by_row_number(row_number)
         if not medicine:
-            raise ValueError(f"Лекарство {medicine_id} не найдено")
+            raise ValueError("Выбранная строка лекарства не найдена")
         self.archive_medicine(
             medicine,
+            written_off_by=written_off_by,
+            written_off_by_id=written_off_by_id,
             reason=reason,
-            user_label=user_label,
             action=action,
-            quantity=quantity,
-            remainder_override=remainder_override,
-            status_override=status_override,
         )
         return medicine
 
@@ -253,31 +206,28 @@ class SheetsService:
         self,
         medicine: dict[str, Any],
         *,
+        written_off_by: str,
+        written_off_by_id: int | str,
         reason: str,
-        user_label: str,
         action: str,
-        quantity: str = "",
-        remainder_override: str | None = None,
-        status_override: str | None = None,
     ) -> None:
-        archived = dict(medicine)
-        if remainder_override is not None:
-            archived["Остаток"] = remainder_override
-        if status_override is not None:
-            archived["Статус"] = status_override
-        archived["Последнее изменение"] = self._today_text()
-
-        archive_row = self._row_from_dict(MEDICINE_HEADERS, archived)
-        archive_row.extend([self._today_text(), reason])
+        archive_row = self._row_from_dict(MEDICINE_HEADERS, medicine)
+        archive_row.extend(
+            [
+                self._today_text(),
+                written_off_by,
+                str(written_off_by_id),
+                reason,
+            ]
+        )
         self._worksheet(SHEET_ARCHIVE).append_row(archive_row, value_input_option="USER_ENTERED")
         self._worksheet(SHEET_MEDICINES).delete_rows(int(medicine["_row_number"]))
         self.append_history(
-            user_label=user_label,
+            user_label=written_off_by,
             action=action,
             medicine_id=medicine.get("ID", ""),
             name=medicine.get("Название", ""),
-            quantity=quantity,
-            remainder=str(archived.get("Остаток", "")),
+            quantity=medicine.get("Количество", ""),
             comment=reason,
         )
 
@@ -289,7 +239,6 @@ class SheetsService:
         medicine_id: str,
         name: str,
         quantity: str,
-        remainder: str,
         comment: str,
     ) -> None:
         row = [
@@ -299,7 +248,6 @@ class SheetsService:
             medicine_id,
             name,
             quantity,
-            remainder,
             comment,
         ]
         self._worksheet(SHEET_HISTORY).append_row(row, value_input_option="USER_ENTERED")
@@ -326,8 +274,9 @@ class SheetsService:
             for medicine in sorted(expired, key=lambda item: int(item["_row_number"]), reverse=True):
                 self.archive_medicine(
                     medicine,
+                    written_off_by=user_label,
+                    written_off_by_id="system",
                     reason="Истёк срок годности",
-                    user_label=user_label,
                     action="Просрочено и перенесено в архив",
                 )
 
@@ -352,14 +301,3 @@ class SheetsService:
         }
         worksheet.append_row(self._row_from_dict(USER_HEADERS, user), value_input_option="USER_ENTERED")
         return user
-
-    def low_stock_medicines(self) -> list[dict[str, Any]]:
-        low_stock: list[dict[str, Any]] = []
-        for medicine in self.get_all_medicines():
-            remainder = table_decimal(medicine.get("Остаток", "0"))
-            minimum = table_decimal(medicine.get("Минимальный остаток", "0"))
-            if remainder <= minimum:
-                medicine["Остаток"] = format_decimal(remainder)
-                medicine["Минимальный остаток"] = format_decimal(minimum)
-                low_stock.append(medicine)
-        return low_stock

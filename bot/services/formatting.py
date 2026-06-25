@@ -16,13 +16,11 @@ def medicine_card(medicine: dict[str, Any]) -> str:
             f"ID: {medicine.get('ID', '')}",
             f"Название: {medicine.get('Название', '')}",
             f"Категория: {medicine.get('Категория', '')}",
-            f"Производитель: {medicine.get('Производитель', '') or '-'}",
-            f"Серия: {medicine.get('Серия', '') or '-'}",
+            f"Содержимое: {medicine.get('Содержимое', '')}",
             f"Срок годности: {medicine.get('Срок годности', '')}",
-            f"Остаток: {medicine.get('Остаток', '')} {medicine.get('Единица', '')}",
-            f"Минимальный остаток: {medicine.get('Минимальный остаток', '')}",
+            f"Количество: {medicine.get('Количество', '')}",
             f"Место хранения: {medicine.get('Место хранения', '')}",
-            f"Статус: {medicine.get('Статус', '')}",
+            f"Дата добавления: {medicine.get('Дата добавления', '')}",
         ]
     )
 
@@ -32,8 +30,9 @@ def archive_card(medicine: dict[str, Any]) -> str:
     return "\n".join(
         [
             base,
-            f"Дата архивации: {medicine.get('Дата архивации', '')}",
-            f"Причина: {medicine.get('Причина', '')}",
+            f"Дата списания: {medicine.get('Дата списания', '')}",
+            f"Кто списал: {medicine.get('Кто списал', '')}",
+            f"Причина списания: {medicine.get('Причина списания', '')}",
         ]
     )
 
@@ -44,7 +43,7 @@ def _short_medicine_line(medicine: dict[str, Any]) -> str:
     return (
         f"{medicine.get('ID', '')} — {medicine.get('Название', '')}, "
         f"до {medicine.get('Срок годности', '')}, "
-        f"остаток {medicine.get('Остаток', '')} {medicine.get('Единица', '')}{suffix}"
+        f"количество {medicine.get('Количество', '')}{suffix}"
     )
 
 
@@ -78,4 +77,3 @@ def expiry_report(result: ExpiryCheckResult, *, scheduled: bool = False) -> str:
     if scheduled:
         return "Проверка сроков выполнена. Срочных лекарств нет."
     return "Сроки проверены. Просроченных и истекающих в ближайшие 90 дней лекарств нет."
-

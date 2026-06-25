@@ -7,24 +7,21 @@ class AddMedicine(StatesGroup):
     photo = State()
     name = State()
     category = State()
-    manufacturer = State()
-    series = State()
+    content = State()
     expiration_date = State()
-    initial_quantity = State()
-    unit = State()
-    min_quantity = State()
+    quantity = State()
     storage = State()
 
 
 class SearchMedicine(StatesGroup):
+    mode = State()
     query = State()
 
 
-class UseMedicine(StatesGroup):
-    quantity = State()
-    confirm_archive = State()
+class WriteOffMedicine(StatesGroup):
+    query = State()
+    confirm = State()
 
 
 class ArchiveSearch(StatesGroup):
     query = State()
-

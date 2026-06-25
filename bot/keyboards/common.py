@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
@@ -9,13 +11,15 @@ from aiogram.types import (
 
 from bot.constants import (
     CANCEL_TEXT,
+    CONTENT_TYPES,
+    DEFAULT_CATEGORIES,
     MENU_ADD,
     MENU_ARCHIVE,
     MENU_EXPIRY,
     MENU_PROFILE,
     MENU_SEARCH,
-    SKIP_TEXT,
-    UNITS,
+    MENU_WRITE_OFF,
+    STORAGE_LOCATIONS,
 )
 
 
@@ -23,18 +27,10 @@ def main_menu() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text=MENU_ADD), KeyboardButton(text=MENU_SEARCH)],
-            [KeyboardButton(text=MENU_EXPIRY), KeyboardButton(text=MENU_ARCHIVE)],
-            [KeyboardButton(text=MENU_PROFILE)],
+            [KeyboardButton(text=MENU_WRITE_OFF), KeyboardButton(text=MENU_EXPIRY)],
+            [KeyboardButton(text=MENU_ARCHIVE), KeyboardButton(text=MENU_PROFILE)],
         ],
         resize_keyboard=True,
-    )
-
-
-def skip_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text=SKIP_TEXT)], [KeyboardButton(text=CANCEL_TEXT)]],
-        resize_keyboard=True,
-        one_time_keyboard=True,
     )
 
 
@@ -45,38 +41,56 @@ def cancel_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
-def categories_keyboard(categories: list[str]) -> InlineKeyboardMarkup:
+def options_keyboard(options: Sequence[str], prefix: str) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
-    for index, category in enumerate(categories):
-        rows.append([InlineKeyboardButton(text=category, callback_data=f"category:{index}")])
+    for index, option in enumerate(options):
+        rows.append([InlineKeyboardButton(text=option, callback_data=f"{prefix}:{index}")])
     rows.append([InlineKeyboardButton(text=CANCEL_TEXT, callback_data="flow:cancel")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
-def units_keyboard() -> InlineKeyboardMarkup:
-    rows = [
-        [InlineKeyboardButton(text=unit, callback_data=f"unit:{index}")]
-        for index, unit in enumerate(UNITS)
-    ]
-    rows.append([InlineKeyboardButton(text=CANCEL_TEXT, callback_data="flow:cancel")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+def categories_keyboard(prefix: str = "add_category") -> InlineKeyboardMarkup:
+    return options_keyboard(DEFAULT_CATEGORIES, prefix)
 
 
-def medicine_actions(medicine_id: str, *, can_delete: bool) -> InlineKeyboardMarkup:
-    rows = [[InlineKeyboardButton(text="➖ Использовали", callback_data=f"use:{medicine_id}")]]
-    if can_delete:
-        rows.append([InlineKeyboardButton(text="🗑 Удалить / Списать", callback_data=f"delete:{medicine_id}")])
-    rows.append([InlineKeyboardButton(text=CANCEL_TEXT, callback_data="card:cancel")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+def content_keyboard(prefix: str = "add_content") -> InlineKeyboardMarkup:
+    return options_keyboard(CONTENT_TYPES, prefix)
 
 
-def confirm_keyboard(prefix: str, medicine_id: str) -> InlineKeyboardMarkup:
+def storage_keyboard(prefix: str = "add_storage") -> InlineKeyboardMarkup:
+    return options_keyboard(STORAGE_LOCATIONS, prefix)
+
+
+def search_mode_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [
-                InlineKeyboardButton(text="Да", callback_data=f"{prefix}:yes:{medicine_id}"),
-                InlineKeyboardButton(text="Нет", callback_data=f"{prefix}:no:{medicine_id}"),
-            ]
+            [InlineKeyboardButton(text="По названию", callback_data="search_mode:name")],
+            [InlineKeyboardButton(text="По категории", callback_data="search_mode:category")],
+            [InlineKeyboardButton(text="По содержимому", callback_data="search_mode:content")],
+            [InlineKeyboardButton(text="По месту хранения", callback_data="search_mode:storage")],
+            [InlineKeyboardButton(text=CANCEL_TEXT, callback_data="flow:cancel")],
         ]
     )
 
+
+def writeoff_select_keyboard(medicines: list[dict]) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    for medicine in medicines:
+        row_number = medicine.get("_row_number")
+        text = (
+            f"{medicine.get('Название', '')} | "
+            f"{medicine.get('Срок годности', '')} | "
+            f"{medicine.get('Место хранения', '')}"
+        )
+        rows.append([InlineKeyboardButton(text=text[:64], callback_data=f"writeoff_select:{row_number}")])
+    rows.append([InlineKeyboardButton(text=CANCEL_TEXT, callback_data="writeoff_cancel")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def writeoff_confirm_keyboard(row_number: int) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="Да, списать", callback_data=f"writeoff_confirm:{row_number}")],
+            [InlineKeyboardButton(text=CANCEL_TEXT, callback_data="writeoff_cancel")],
+        ]
+    )
