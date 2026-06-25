@@ -16,7 +16,6 @@ from bot.constants import (
     DEFAULT_CATEGORIES,
     HISTORY_HEADERS,
     MEDICINE_HEADERS,
-    ROLE_ADMIN,
     ROLE_USER,
     SHEET_ARCHIVE,
     SHEET_CATEGORIES,
@@ -345,11 +344,10 @@ class SheetsService:
                     user["Имя"] = name
                 return user
 
-        role = ROLE_ADMIN if telegram_id in self._settings.admin_chat_ids else ROLE_USER
         user = {
             "Telegram ID": str(telegram_id),
             "Имя": name,
-            "Роль": role,
+            "Роль": ROLE_USER,
             "Активен": "Да",
         }
         worksheet.append_row(self._row_from_dict(USER_HEADERS, user), value_input_option="USER_ENTERED")

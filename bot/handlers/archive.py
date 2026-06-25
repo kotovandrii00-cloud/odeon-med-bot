@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import Message
 
@@ -11,7 +11,7 @@ from bot.config import Settings
 from bot.constants import MENU_ARCHIVE
 from bot.google.sheets import SheetsService
 from bot.keyboards.common import main_menu
-from bot.services.access import require_active_message
+from bot.services.access import require_warehouse_message
 from bot.services.formatting import archive_card
 from bot.states.medicine import ArchiveSearch
 
@@ -23,14 +23,12 @@ logger = logging.getLogger(__name__)
 async def archive_start(
     message: Message,
     state: FSMContext,
+    bot: Bot,
     sheets: SheetsService,
     settings: Settings,
 ) -> None:
-    access = await require_active_message(message, sheets, settings)
+    access = await require_warehouse_message(message, bot, sheets, settings)
     if not access:
-        return
-    if not access.is_admin:
-        await message.answer("Архив доступен только администратору.", reply_markup=main_menu())
         return
 
     await state.clear()
@@ -42,13 +40,13 @@ async def archive_start(
 async def archive_query(
     message: Message,
     state: FSMContext,
+    bot: Bot,
     sheets: SheetsService,
     settings: Settings,
 ) -> None:
-    access = await require_active_message(message, sheets, settings)
-    if not access or not access.is_admin:
+    access = await require_warehouse_message(message, bot, sheets, settings)
+    if not access:
         await state.clear()
-        await message.answer("Недостаточно прав.", reply_markup=main_menu())
         return
 
     query = message.text.strip()
@@ -75,4 +73,3 @@ async def archive_query(
         if photo_url:
             text = f"{text}\nФото: {photo_url}"
         await message.answer(text)
-

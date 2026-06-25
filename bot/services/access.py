@@ -4,6 +4,8 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any
 
+from aiogram import Bot
+from aiogram.exceptions import TelegramAPIError
 from aiogram.types import CallbackQuery, Message, User
 
 from bot.config import Settings
@@ -53,6 +55,44 @@ async def require_active_message(message: Message, sheets: SheetsService, settin
     return access
 
 
+def _chat_member_status_value(status: Any) -> str:
+    return getattr(status, "value", str(status))
+
+
+async def is_warehouse_member(bot: Bot, user_id: int, settings: Settings) -> bool:
+    try:
+        member = await bot.get_chat_member(settings.telegram_group_id, user_id)
+    except TelegramAPIError:
+        return False
+
+    status = _chat_member_status_value(member.status)
+    if status in {"creator", "administrator", "member"}:
+        return True
+    if status == "restricted":
+        return bool(getattr(member, "is_member", False))
+    return False
+
+
+async def require_warehouse_message(
+    message: Message,
+    bot: Bot,
+    sheets: SheetsService,
+    settings: Settings,
+) -> Access | None:
+    user_id = message.from_user.id if message.from_user else None
+    if user_id is None:
+        await message.answer("Не удалось определить пользователя Telegram.")
+        return None
+
+    if not await is_warehouse_member(bot, user_id, settings):
+        await message.answer(
+            f"Доступ к складу есть только у участников Telegram-группы {settings.telegram_group_id}."
+        )
+        return None
+
+    return await require_active_message(message, sheets, settings)
+
+
 async def require_active_callback(
     callback: CallbackQuery,
     sheets: SheetsService,
@@ -67,3 +107,18 @@ async def require_active_callback(
         return None
     return access
 
+
+async def require_warehouse_callback(
+    callback: CallbackQuery,
+    bot: Bot,
+    sheets: SheetsService,
+    settings: Settings,
+) -> Access | None:
+    if not await is_warehouse_member(bot, callback.from_user.id, settings):
+        await callback.answer(
+            f"Доступ только для участников группы {settings.telegram_group_id}.",
+            show_alert=True,
+        )
+        return None
+
+    return await require_active_callback(callback, sheets, settings)

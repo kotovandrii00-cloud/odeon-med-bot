@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
@@ -12,7 +12,7 @@ from bot.config import Settings
 from bot.constants import MENU_SEARCH, STATUS_ACTIVE, STATUS_NO_STOCK
 from bot.google.sheets import SheetsService
 from bot.keyboards.common import confirm_keyboard, main_menu, medicine_actions
-from bot.services.access import require_active_callback, require_active_message
+from bot.services.access import require_warehouse_callback, require_warehouse_message
 from bot.services.formatting import medicine_card
 from bot.services.parsing import format_decimal, parse_positive_decimal, table_decimal
 from bot.states.medicine import SearchMedicine, UseMedicine
@@ -40,10 +40,11 @@ async def _send_medicine_card(message: Message, medicine: dict, *, can_delete: b
 async def search_start(
     message: Message,
     state: FSMContext,
+    bot: Bot,
     sheets: SheetsService,
     settings: Settings,
 ) -> None:
-    access = await require_active_message(message, sheets, settings)
+    access = await require_warehouse_message(message, bot, sheets, settings)
     if not access:
         return
     await state.clear()
@@ -55,10 +56,11 @@ async def search_start(
 async def search_query(
     message: Message,
     state: FSMContext,
+    bot: Bot,
     sheets: SheetsService,
     settings: Settings,
 ) -> None:
-    access = await require_active_message(message, sheets, settings)
+    access = await require_warehouse_message(message, bot, sheets, settings)
     if not access:
         return
     query = message.text.strip()
@@ -80,17 +82,18 @@ async def search_query(
 
     await message.answer(f"Найдено позиций: {len(medicines)}", reply_markup=main_menu())
     for medicine in medicines:
-        await _send_medicine_card(message, medicine, can_delete=access.is_admin)
+        await _send_medicine_card(message, medicine, can_delete=True)
 
 
 @router.callback_query(F.data.startswith("use:"))
 async def use_start(
     callback: CallbackQuery,
     state: FSMContext,
+    bot: Bot,
     sheets: SheetsService,
     settings: Settings,
 ) -> None:
-    access = await require_active_callback(callback, sheets, settings)
+    access = await require_warehouse_callback(callback, bot, sheets, settings)
     if not access:
         return
     medicine_id = callback.data.split(":", 1)[1]
@@ -112,10 +115,11 @@ async def use_start(
 async def use_quantity(
     message: Message,
     state: FSMContext,
+    bot: Bot,
     sheets: SheetsService,
     settings: Settings,
 ) -> None:
-    access = await require_active_message(message, sheets, settings)
+    access = await require_warehouse_message(message, bot, sheets, settings)
     if not access:
         return
 
@@ -168,10 +172,11 @@ async def use_quantity(
 async def use_confirm_archive(
     callback: CallbackQuery,
     state: FSMContext,
+    bot: Bot,
     sheets: SheetsService,
     settings: Settings,
 ) -> None:
-    access = await require_active_callback(callback, sheets, settings)
+    access = await require_warehouse_callback(callback, bot, sheets, settings)
     if not access:
         return
     _, answer, medicine_id = callback.data.split(":", 2)
@@ -216,14 +221,12 @@ async def use_confirm_archive(
 @router.callback_query(F.data.startswith("delete:"))
 async def delete_start(
     callback: CallbackQuery,
+    bot: Bot,
     sheets: SheetsService,
     settings: Settings,
 ) -> None:
-    access = await require_active_callback(callback, sheets, settings)
+    access = await require_warehouse_callback(callback, bot, sheets, settings)
     if not access:
-        return
-    if not access.is_admin:
-        await callback.answer("Удалять/списывать может только администратор.", show_alert=True)
         return
 
     medicine_id = callback.data.split(":", 1)[1]
@@ -243,14 +246,12 @@ async def delete_start(
 @router.callback_query(F.data.startswith("delete_confirm:"))
 async def delete_confirm(
     callback: CallbackQuery,
+    bot: Bot,
     sheets: SheetsService,
     settings: Settings,
 ) -> None:
-    access = await require_active_callback(callback, sheets, settings)
+    access = await require_warehouse_callback(callback, bot, sheets, settings)
     if not access:
-        return
-    if not access.is_admin:
-        await callback.answer("Недостаточно прав.", show_alert=True)
         return
 
     _, answer, medicine_id = callback.data.split(":", 2)
@@ -276,4 +277,3 @@ async def delete_confirm(
     await callback.answer()
     if callback.message:
         await callback.message.answer("Лекарство перенесено в архив.", reply_markup=main_menu())
-

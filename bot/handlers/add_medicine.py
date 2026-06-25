@@ -14,7 +14,7 @@ from bot.constants import MENU_ADD, SKIP_TEXT, UNITS
 from bot.google.drive import DriveService
 from bot.google.sheets import SheetsService
 from bot.keyboards.common import cancel_keyboard, categories_keyboard, main_menu, skip_keyboard, units_keyboard
-from bot.services.access import require_active_callback, require_active_message
+from bot.services.access import require_warehouse_callback, require_warehouse_message
 from bot.services.parsing import (
     format_decimal,
     parse_non_negative_decimal,
@@ -31,14 +31,12 @@ logger = logging.getLogger(__name__)
 async def add_start(
     message: Message,
     state: FSMContext,
+    bot: Bot,
     sheets: SheetsService,
     settings: Settings,
 ) -> None:
-    access = await require_active_message(message, sheets, settings)
+    access = await require_warehouse_message(message, bot, sheets, settings)
     if not access:
-        return
-    if not access.is_admin:
-        await message.answer("Добавлять лекарства может только администратор.", reply_markup=main_menu())
         return
     await state.clear()
     await state.set_state(AddMedicine.photo)
@@ -104,12 +102,12 @@ async def add_name(
 async def add_category(
     callback: CallbackQuery,
     state: FSMContext,
+    bot: Bot,
     sheets: SheetsService,
     settings: Settings,
 ) -> None:
-    access = await require_active_callback(callback, sheets, settings)
-    if not access or not access.is_admin:
-        await callback.answer("Недостаточно прав.", show_alert=True)
+    access = await require_warehouse_callback(callback, bot, sheets, settings)
+    if not access:
         return
 
     try:
@@ -202,12 +200,12 @@ async def add_min_quantity(message: Message, state: FSMContext) -> None:
 async def add_storage(
     message: Message,
     state: FSMContext,
+    bot: Bot,
     sheets: SheetsService,
     settings: Settings,
 ) -> None:
-    access = await require_active_message(message, sheets, settings)
-    if not access or not access.is_admin:
-        await message.answer("Недостаточно прав.", reply_markup=main_menu())
+    access = await require_warehouse_message(message, bot, sheets, settings)
+    if not access:
         await state.clear()
         return
 
@@ -228,4 +226,3 @@ async def add_storage(
 
     await state.clear()
     await message.answer(f"Лекарство сохранено. ID: {medicine_id}", reply_markup=main_menu())
-

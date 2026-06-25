@@ -119,6 +119,7 @@ GOOGLE_SHEET_ID=1Q9yBOi0ExBe93BZDASV4G_KpEcZESIF-RJTmpPGFki4
 GOOGLE_CREDENTIALS_JSON={"type":"service_account",...}
 GOOGLE_DRIVE_FOLDER_ID=1iZx4pr4B7tBxtDOvUHPh4aKqCQf_-bQa
 ADMIN_CHAT_ID=123456789
+TELEGRAM_GROUP_ID=-5460034736
 TIMEZONE=Europe/Paris
 ```
 
@@ -157,15 +158,17 @@ GOOGLE_SHEET_ID=1Q9yBOi0ExBe93BZDASV4G_KpEcZESIF-RJTmpPGFki4
 GOOGLE_CREDENTIALS_JSON=
 GOOGLE_DRIVE_FOLDER_ID=1iZx4pr4B7tBxtDOvUHPh4aKqCQf_-bQa
 ADMIN_CHAT_ID=
+TELEGRAM_GROUP_ID=-5460034736
 TIMEZONE=Europe/Paris
 ```
 
 `ADMIN_CHAT_ID` — ваш Telegram ID. Если нужно отправлять уведомления нескольким администраторам, укажите ID через запятую.
+`TELEGRAM_GROUP_ID` — ID группы, участники которой имеют доступ к складу. По умолчанию используется `-5460034736`.
+Добавьте бота в эту Telegram-группу, чтобы он мог проверять членство пользователей.
 
 ## Роли
 
-- `admin` — полный доступ: добавление, поиск, списание, архив, проверка сроков.
-- `user` — поиск, проверка сроков, списание использованных лекарств.
+- `user` — обычный пользователь. При первом обращении участник разрешённой группы автоматически создаётся в листе `Пользователи` с этой ролью.
+- `admin` — зарезервировано для будущих административных функций и не даёт отдельных прав на работу со складом.
 
-Первый вход пользователя создаёт строку в листе `Пользователи`. Если Telegram ID совпадает с `ADMIN_CHAT_ID`, роль будет `admin`.
-
+Добавлять лекарства, искать, списывать, проверять сроки и просматривать архив может любой активный пользователь, который состоит в Telegram-группе `-5460034736`.

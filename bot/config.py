@@ -28,6 +28,7 @@ class Settings:
     google_credentials_json: str
     google_drive_folder_id: str
     admin_chat_ids: tuple[int, ...]
+    telegram_group_id: int = -5460034736
     timezone: str = "Europe/Paris"
     expiry_warning_days: int = 90
 
@@ -44,6 +45,7 @@ class Settings:
         credentials_json = os.getenv("GOOGLE_CREDENTIALS_JSON", "").strip()
         drive_folder_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "").strip()
         admin_chat_id = os.getenv("ADMIN_CHAT_ID", "").strip()
+        telegram_group_id = os.getenv("TELEGRAM_GROUP_ID", "-5460034736").strip()
         timezone = os.getenv("TIMEZONE", "Europe/Paris").strip() or "Europe/Paris"
 
         missing: list[str] = []
@@ -66,12 +68,18 @@ class Settings:
         except Exception as exc:  # pragma: no cover - depends on OS tzdata.
             raise RuntimeError(f"Неверный TIMEZONE: {timezone}") from exc
 
+        try:
+            parsed_group_id = int(telegram_group_id)
+        except ValueError as exc:
+            raise RuntimeError(f"TELEGRAM_GROUP_ID содержит неверное значение: {telegram_group_id}") from exc
+
         return cls(
             bot_token=bot_token,
             google_sheet_id=sheet_id,
             google_credentials_json=credentials_json,
             google_drive_folder_id=drive_folder_id,
             admin_chat_ids=_split_chat_ids(admin_chat_id),
+            telegram_group_id=parsed_group_id,
             timezone=timezone,
         )
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from aiogram import F, Router
+from aiogram import Bot, F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
@@ -9,14 +9,14 @@ from bot.config import Settings
 from bot.constants import CANCEL_TEXT, MENU_PROFILE
 from bot.google.sheets import SheetsService
 from bot.keyboards.common import main_menu
-from bot.services.access import require_active_message
+from bot.services.access import require_warehouse_message
 
 router = Router()
 
 
 @router.message(CommandStart())
-async def start(message: Message, sheets: SheetsService, settings: Settings) -> None:
-    access = await require_active_message(message, sheets, settings)
+async def start(message: Message, bot: Bot, sheets: SheetsService, settings: Settings) -> None:
+    access = await require_warehouse_message(message, bot, sheets, settings)
     if not access:
         return
     await message.answer(
@@ -46,8 +46,8 @@ async def cancel_card(callback: CallbackQuery) -> None:
 
 
 @router.message(F.text == MENU_PROFILE)
-async def profile(message: Message, sheets: SheetsService, settings: Settings) -> None:
-    access = await require_active_message(message, sheets, settings)
+async def profile(message: Message, bot: Bot, sheets: SheetsService, settings: Settings) -> None:
+    access = await require_warehouse_message(message, bot, sheets, settings)
     if not access:
         return
     user = access.user
@@ -63,4 +63,3 @@ async def profile(message: Message, sheets: SheetsService, settings: Settings) -
         ),
         reply_markup=main_menu(),
     )
-
