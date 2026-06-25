@@ -161,7 +161,7 @@ class SheetsService:
         today = self._today_text()
         row = [
             medicine_id,
-            data.get("photo_url", ""),
+            data.get("photo_cell") or data.get("photo_url", ""),
             data["name"],
             data["category"],
             data.get("manufacturer", ""),

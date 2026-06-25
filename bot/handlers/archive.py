@@ -13,6 +13,7 @@ from bot.google.sheets import SheetsService
 from bot.keyboards.common import main_menu
 from bot.services.access import require_warehouse_message
 from bot.services.formatting import archive_card
+from bot.services.photos import extract_photo_url
 from bot.states.medicine import ArchiveSearch
 
 router = Router()
@@ -69,7 +70,7 @@ async def archive_query(
     await message.answer(f"Найдено в архиве: {len(medicines)}", reply_markup=main_menu())
     for medicine in medicines:
         text = archive_card(medicine)
-        photo_url = medicine.get("Фото", "")
+        photo_url = extract_photo_url(medicine.get("Фото", ""))
         if photo_url:
             text = f"{text}\nФото: {photo_url}"
         await message.answer(text)

@@ -27,6 +27,9 @@ class Settings:
     google_sheet_id: str
     google_credentials_json: str
     google_drive_folder_id: str
+    google_client_id: str
+    google_client_secret: str
+    google_refresh_token: str
     admin_chat_ids: tuple[int, ...]
     telegram_group_id: int = -5460034736
     timezone: str = "Europe/Paris"
@@ -44,6 +47,9 @@ class Settings:
         sheet_id = os.getenv("GOOGLE_SHEET_ID", "").strip()
         credentials_json = os.getenv("GOOGLE_CREDENTIALS_JSON", "").strip()
         drive_folder_id = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "").strip()
+        google_client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+        google_client_secret = os.getenv("GOOGLE_CLIENT_SECRET", "").strip()
+        google_refresh_token = os.getenv("GOOGLE_REFRESH_TOKEN", "").strip()
         admin_chat_id = os.getenv("ADMIN_CHAT_ID", "").strip()
         telegram_group_id = os.getenv("TELEGRAM_GROUP_ID", "-5460034736").strip()
         timezone = os.getenv("TIMEZONE", "Europe/Paris").strip() or "Europe/Paris"
@@ -78,6 +84,9 @@ class Settings:
             google_sheet_id=sheet_id,
             google_credentials_json=credentials_json,
             google_drive_folder_id=drive_folder_id,
+            google_client_id=google_client_id,
+            google_client_secret=google_client_secret,
+            google_refresh_token=google_refresh_token,
             admin_chat_ids=_split_chat_ids(admin_chat_id),
             telegram_group_id=parsed_group_id,
             timezone=timezone,
@@ -86,3 +95,11 @@ class Settings:
     @property
     def tzinfo(self) -> ZoneInfo:
         return ZoneInfo(self.timezone)
+
+    @property
+    def has_drive_oauth(self) -> bool:
+        return all([self.google_client_id, self.google_client_secret, self.google_refresh_token])
+
+    @property
+    def has_partial_drive_oauth(self) -> bool:
+        return any([self.google_client_id, self.google_client_secret, self.google_refresh_token]) and not self.has_drive_oauth

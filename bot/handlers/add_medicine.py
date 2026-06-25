@@ -54,18 +54,19 @@ async def add_photo(
     buffer = BytesIO()
     await bot.download(message.photo[-1].file_id, destination=buffer)
     content = buffer.getvalue()
-    filename = f"medicine_{message.from_user.id}_{datetime.now(settings.tzinfo):%Y%m%d_%H%M%S}.jpg"
+    timestamp = datetime.now(settings.tzinfo)
+    filename = f"medicine_{timestamp:%Y-%m-%d_%H-%M-%S}_{message.from_user.id}.jpg"
 
     try:
-        photo_url = await asyncio.to_thread(drive.upload_photo, content, filename, "image/jpeg")
+        uploaded = await asyncio.to_thread(drive.upload_photo, content, filename, "image/jpeg", timestamp)
     except Exception:
         logger.exception("Failed to upload photo to Google Drive")
         await message.answer(
-            "Не удалось сохранить фото в Google Drive. Проверьте доступ к папке и переменные окружения."
+            "Не удалось сохранить фото в Google Drive. Проверьте папку, OAuth-переменные Google Drive и доступы."
         )
         return
 
-    await state.update_data(photo_url=photo_url)
+    await state.update_data(photo_id=uploaded.file_id, photo_url=uploaded.url, photo_cell=uploaded.sheet_value)
     await state.set_state(AddMedicine.name)
     await message.answer("Введите название лекарства.", reply_markup=cancel_keyboard())
 

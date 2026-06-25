@@ -118,6 +118,9 @@ BOT_TOKEN=123456:telegram-token
 GOOGLE_SHEET_ID=1Q9yBOi0ExBe93BZDASV4G_KpEcZESIF-RJTmpPGFki4
 GOOGLE_CREDENTIALS_JSON={"type":"service_account",...}
 GOOGLE_DRIVE_FOLDER_ID=1iZx4pr4B7tBxtDOvUHPh4aKqCQf_-bQa
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REFRESH_TOKEN=
 ADMIN_CHAT_ID=123456789
 TELEGRAM_GROUP_ID=-5460034736
 TIMEZONE=Europe/Paris
@@ -157,10 +160,16 @@ BOT_TOKEN=
 GOOGLE_SHEET_ID=1Q9yBOi0ExBe93BZDASV4G_KpEcZESIF-RJTmpPGFki4
 GOOGLE_CREDENTIALS_JSON=
 GOOGLE_DRIVE_FOLDER_ID=1iZx4pr4B7tBxtDOvUHPh4aKqCQf_-bQa
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_REFRESH_TOKEN=
 ADMIN_CHAT_ID=
 TELEGRAM_GROUP_ID=-5460034736
 TIMEZONE=Europe/Paris
 ```
+
+Для загрузки фото в Google Drive бот использует OAuth-переменные `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, как в рабочем боте чеков. Если эти три переменные не заданы, бот попробует загрузить фото через service account из `GOOGLE_CREDENTIALS_JSON`.
+Фото сохраняются в месячную подпапку внутри `GOOGLE_DRIVE_FOLDER_ID`, а в колонку `Фото` записываются file ID и ссылка на файл.
 
 `ADMIN_CHAT_ID` — ваш Telegram ID. Если нужно отправлять уведомления нескольким администраторам, укажите ID через запятую.
 `TELEGRAM_GROUP_ID` — ID группы, участники которой имеют доступ к складу. По умолчанию используется `-5460034736`.

@@ -14,6 +14,7 @@ from bot.google.sheets import SheetsService
 from bot.keyboards.common import confirm_keyboard, main_menu, medicine_actions
 from bot.services.access import require_warehouse_callback, require_warehouse_message
 from bot.services.formatting import medicine_card
+from bot.services.photos import extract_photo_url
 from bot.services.parsing import format_decimal, parse_positive_decimal, table_decimal
 from bot.states.medicine import SearchMedicine, UseMedicine
 
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 async def _send_medicine_card(message: Message, medicine: dict, *, can_delete: bool) -> None:
     text = medicine_card(medicine)
     markup = medicine_actions(medicine.get("ID", ""), can_delete=can_delete)
-    photo_url = medicine.get("Фото", "")
+    photo_url = extract_photo_url(medicine.get("Фото", ""))
     if photo_url:
         try:
             await message.answer_photo(photo=photo_url, caption=text, reply_markup=markup)
