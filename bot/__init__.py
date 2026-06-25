@@ -1,0 +1,2 @@
+"""Odeon medicine inventory bot."""
+
